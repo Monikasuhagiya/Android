@@ -41,4 +41,9 @@
         android:title="@string/credentialManagementDeleteAllPasswordsMenu"
         app:showAsAction="never" />
 
+    <item
+        android:id="@+id/importPasswords"
+        android:title="@string/autofillManagementImportPasswords"
+        app:showAsAction="never" />
+
 </menu>

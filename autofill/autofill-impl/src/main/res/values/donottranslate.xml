@@ -22,4 +22,14 @@
     </plurals>
     <string name="syncCredentialInvalidItemsWarningLink"><annotation type="manage_passwords">Manage Passwords</annotation></string>
 
+    <string name="autofillManagementImportPasswords">Import Passwords</string>
+    <string name="autofillManagementImportPasswordsHowToTitle">How To Import Passwords</string>
+    <string name="autofillManagementImportPasswordsHowToInstruction">Import passwords in the desktop version of the DuckDuckGo browser, then sync across devices.</string>
+    <string name="autofillManagementImportPasswordsGetDesktopBrowserButtonText">Get Desktop Browser</string>
+    <string name="autofillManagementImportPasswordsSyncWithDesktopButtonText">Sync With Desktop</string>
+    <string name="autofillManagementImportPasswordsImportFromDesktopTitle">Import from the desktop browser:</string>
+    <string name="autofillManagementImportPasswordsImportFromDesktopInstructionOne">Open DuckDuckGo on Mac or Windows</string>
+    <string name="autofillManagementImportPasswordsImportFromDesktopInstructionTwo">Go to Settings > Passwords</string>
+    <string name="autofillManagementImportPasswordsImportFromDesktopInstructionThree">Select Import Passwords… and follow the steps to import</string>
+    <string name="autofillManagementImportPasswordsImportFromDesktopInstructionFour">Once imported on your computer you can set up sync on this device</string>
 </resources>

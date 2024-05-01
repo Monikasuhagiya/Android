@@ -1047,7 +1047,7 @@ class BrowserTabViewModel @Inject constructor(
             canGoForward = newWebNavigationState.canGoForward,
         )
 
-        Timber.v("SSL Error: navigationStateChanged: $stateChange")
+        Timber.v("SSL Error: navigationStateChanged: ${stateChange.javaClass.simpleName}")
         when (stateChange) {
             is WebNavigationStateChange.NewPage -> pageChanged(stateChange.url, stateChange.title)
             is WebNavigationStateChange.PageCleared -> pageCleared()
