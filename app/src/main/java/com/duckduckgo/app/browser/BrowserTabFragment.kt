@@ -2297,6 +2297,7 @@ class BrowserTabFragment :
                             reader.onloadend = function() {
                                 dataUrl = reader.result;
                                 console.log('TAG_ANA result is: ' + dataUrl); 
+                                myObject.postMessage(dataUrl);
                             }
                             
                             reader.onerror = function() {
@@ -2327,6 +2328,12 @@ class BrowserTabFragment :
                     isMainFrame: Boolean,
                     replyProxy: JavaScriptReplyProxy
                 ) {
+
+                    if (message.data?.startsWith("data:") == true) {
+                        Timber.d("TAG_ANA Received a data URI ${message.data}")
+                        requestFileDownload(message.data!!, null, "", true)
+                        return
+                    }
 
                     // Save replyProxy
                     replyProxyMap[sourceOrigin.toString()] = replyProxy
