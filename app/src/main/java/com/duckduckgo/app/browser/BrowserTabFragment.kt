@@ -82,6 +82,7 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.duckduckgo.anvil.annotations.InjectWith
 import com.duckduckgo.app.accessibility.data.AccessibilitySettingsDataStore
 import com.duckduckgo.app.autocomplete.api.AutoComplete.AutoCompleteSuggestion
@@ -1473,7 +1474,6 @@ class BrowserTabFragment :
             is Command.AskToAutomateFireproofWebsite -> askToAutomateFireproofWebsite(requireContext(), it.fireproofWebsite)
             is Command.AskToDisableLoginDetection -> askToDisableLoginDetection(requireContext())
             is Command.ShowDomainHasPermissionMessage -> showDomainHasLocationPermission(it.domain)
-            is Command.ConvertBlobToDataUri -> convertBlobToDataUri(it)
             is Command.RequestFileDownload -> requestFileDownload(it.url, it.contentDisposition, it.mimeType, it.requestUserConfirmation)
             is Command.ChildTabClosed -> processUriForThirdPartyCookies()
             is Command.CopyAliasToClipboard -> copyAliasToClipboard(it.alias)
@@ -2205,9 +2205,6 @@ class BrowserTabFragment :
         viewModel.onUserSubmittedQuery(query)
     }
 
-
-    private val replyProxyMap = mutableMapOf<String, JavaScriptReplyProxy>()
-
     @SuppressLint("SetJavaScriptEnabled")
     private fun configureWebView() {
         viewModel.configureBrowserBackground()
@@ -2246,19 +2243,7 @@ class BrowserTabFragment :
 
             it.setDownloadListener { url, _, contentDisposition, mimeType, _ ->
                 Timber.d("TAG_ANA Downloading file from $url with contentDisposition $contentDisposition and mimeType $mimeType")
-                Timber.d("TAG_ANA replyProxyMap is $replyProxyMap")
-
-                if (url.startsWith("blob:")) {
-                    for ((key, value) in replyProxyMap) {
-                        Timber.d("TAG_ANA replyProxyMap key is $key and value is $value")
-                        if (url.contains(key)) {
-                            Timber.d("TAG_ANA Posting message to replyProxy: $value")
-                            value.postMessage(url)
-                        }
-                    }
-                } else {
-                    viewModel.requestFileDownload(url, contentDisposition, mimeType, true)
-                }
+                viewModel.requestFileDownload(url, contentDisposition, mimeType, true)
             }
 
             it.setOnTouchListener { _, _ ->
@@ -2277,80 +2262,7 @@ class BrowserTabFragment :
 
             it.setFindListener(this)
             loginDetector.addLoginDetection(it) { viewModel.loginDetected() }
-//            blobConverterInjector.addJsInterface(it) { url, mimeType -> viewModel.requestFileDownload(url, null, mimeType, true) }
-
-            val script = """
-            window.__url_to_blob_collection = {};
-
-            const original_createObjectURL = URL.createObjectURL;
-
-            URL.createObjectURL = function () {
-                const blob = arguments[0];
-                const url = original_createObjectURL.call(this, ...arguments);
-                if (blob instanceof Blob) {
-                    __url_to_blob_collection[url] = blob;
-                }
-                return url;
-            }
-            
-            function blobToBase64DataUrl(blob) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onloadend = function() {
-                        resolve(reader.result);
-                    }
-                    reader.onerror = function() {
-                        reject(new Error('Failed to read Blob object'));
-                    }
-                    reader.readAsDataURL(blob);
-                });
-            }
-
-            myObject.postMessage('Hello from JavaScript')
-            console.log('TAG_ANA Posted message from JS: Hello from JavaScript'); 
-            
-            myObject.onmessage = function(event) {
-                console.log('TAG_ANA Event origin is: ' + event.origin); 
-                console.log('TAG_ANA Event data is: ' + event.data);
-                console.log('TAG_ANA window.location is: ' + window.location);           
-
-                if (event.data.startsWith('blob:')) {
-                    console.log('TAG_ANA Event data is a blob: ' + event.data);
-                    const blob = window.__url_to_blob_collection[event.data];
-                    if (blob) {
-                        console.log('TAG_ANA found blob data', blob);
-                        blobToBase64DataUrl(blob).then((dataUrl) => {
-                            myObject.postMessage(dataUrl);
-                        });
-                    } else {
-                        console.log('TAG_ANA no blob found')
-                    }
-                }
-            }
-                
-            """.trimIndent()
-            WebViewCompat.addDocumentStartJavaScript(it, script, setOf("*"))
-            WebViewCompat.addWebMessageListener(it, "myObject", setOf("*"), object : WebViewCompat.WebMessageListener {
-                override fun onPostMessage(
-                    view: WebView,
-                    message: WebMessageCompat,
-                    sourceOrigin: Uri,
-                    isMainFrame: Boolean,
-                    replyProxy: JavaScriptReplyProxy
-                ) {
-
-                    if (message.data?.startsWith("data:") == true) {
-                        Timber.d("TAG_ANA Received a data URI ${message.data}")
-                        requestFileDownload(message.data!!, null, "", true)
-                        return
-                    }
-
-                    // Save replyProxy
-                    replyProxyMap[sourceOrigin.toString()] = replyProxy
-                }
-
-            })
-
+            configureWebViewForBlobDownload(it)
             configureWebViewForAutofill(it)
             printInjector.addJsInterface(it) { viewModel.printFromWebView() }
             autoconsent.addJsInterface(it, autoconsentCallback)
@@ -2399,6 +2311,83 @@ class BrowserTabFragment :
 
     private fun hideOnboardingDaxDialog(experimentCta: ExperimentOnboardingDaxDialogCta) {
         experimentCta.hideOnboardingCta(binding)
+    }
+
+    private fun configureWebViewForBlobDownload(webView: DuckDuckGoWebView) {
+        val script = """
+            window.__url_to_blob_collection = {};
+
+            const original_createObjectURL = URL.createObjectURL;
+
+            URL.createObjectURL = function () {
+                const blob = arguments[0];
+                const url = original_createObjectURL.call(this, ...arguments);
+                if (blob instanceof Blob) {
+                    __url_to_blob_collection[url] = blob;
+                }
+                return url;
+            }
+            
+            function blobToBase64DataUrl(blob) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = function() {
+                        resolve(reader.result);
+                    }
+                    reader.onerror = function() {
+                        reject(new Error('Failed to read Blob object'));
+                    }
+                    reader.readAsDataURL(blob);
+                });
+            }
+
+            myObject.postMessage('Hello from JavaScript')
+            console.log('TAG_ANA Posted message from JS: Hello from JavaScript'); 
+            
+            myObject.onmessage = function(event) {
+                console.log('TAG_ANA Event origin is: ' + event.origin); 
+                console.log('TAG_ANA Event data is: ' + event.data);
+                console.log('TAG_ANA window.location is: ' + window.location);           
+
+                if (event.data.startsWith('blob:')) {
+                    console.log('TAG_ANA Event data is a blob: ' + event.data);
+                    const blob = window.__url_to_blob_collection[event.data];
+                    if (blob) {
+                        console.log('TAG_ANA found blob data', blob);
+                        blobToBase64DataUrl(blob).then((dataUrl) => {
+                            myObject.postMessage(dataUrl);
+                        });
+                    } else {
+                        console.log('TAG_ANA no blob found')
+                    }
+                }
+            }
+        """.trimIndent()
+
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) &&
+            WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addDocumentStartJavaScript(webView, script, setOf("*"))
+            WebViewCompat.addWebMessageListener(
+                webView, "myObject", setOf("*"), object : WebViewCompat.WebMessageListener {
+                    override fun onPostMessage(
+                        view: WebView,
+                        message: WebMessageCompat,
+                        sourceOrigin: Uri,
+                        isMainFrame: Boolean,
+                        replyProxy: JavaScriptReplyProxy
+                    ) {
+
+                        if (message.data?.startsWith("data:") == true) {
+                            Timber.d("TAG_ANA Received a data URI ${message.data}")
+                            requestFileDownload(message.data!!, null, "", true)
+                            return
+                        }
+
+                        // Save replyProxy
+                        viewModel.saveReplyProxyForBlobDownload(sourceOrigin.toString(), replyProxy)
+                    }
+                })
+        }
     }
 
     private fun configureWebViewForAutofill(it: DuckDuckGoWebView) {
@@ -2903,13 +2892,6 @@ class BrowserTabFragment :
         webViewContainer.removeAllViews()
         webView?.destroy()
         webView = null
-    }
-
-    private fun convertBlobToDataUri(blob: Command.ConvertBlobToDataUri) {
-        webView?.let {
-            Timber.d("TAG_ANA convertBlobToDataUri")
-//            blobConverterInjector.convertBlobIntoDataUriAndDownload(it, blob.url, blob.mimeType)
-        }
     }
 
     private fun requestFileDownload(

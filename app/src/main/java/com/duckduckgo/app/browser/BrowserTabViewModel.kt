@@ -39,6 +39,8 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.net.toUri
 import androidx.lifecycle.*
 import androidx.lifecycle.Observer
+import androidx.webkit.JavaScriptReplyProxy
+import androidx.webkit.WebViewFeature
 import com.duckduckgo.adclick.api.AdClickManager
 import com.duckduckgo.anvil.annotations.ContributesViewModel
 import com.duckduckgo.app.accessibility.data.AccessibilitySettingsDataStore
@@ -268,6 +270,8 @@ class BrowserTabViewModel @Inject constructor(
     NavigationHistoryListener {
 
     private var buildingSiteFactoryJob: Job? = null
+
+    private val replyProxyMap = mutableMapOf<String, JavaScriptReplyProxy>()
 
     data class LocationPermission(
         val origin: String,
@@ -2708,7 +2712,7 @@ class BrowserTabViewModel @Inject constructor(
     ) {
         Timber.d("TAG_ANA requestFileDownload url=$url, contentDisposition=$contentDisposition, mimeType=$mimeType, requestUserConfirmation=$requestUserConfirmation")
         if (url.startsWith("blob:")) {
-            command.value = ConvertBlobToDataUri(url, mimeType)
+            postMessageToConvertBlobToDataUri(url, mimeType)
         } else {
             sendRequestFileDownloadCommand(url, contentDisposition, mimeType, requestUserConfirmation)
         }
@@ -2722,6 +2726,20 @@ class BrowserTabViewModel @Inject constructor(
     ) {
         Timber.d("TAG_ANA sendRequestFileDownloadCommand url=$url, contentDisposition=$contentDisposition, mimeType=$mimeType, requestUserConfirmation=$requestUserConfirmation")
         command.postValue(RequestFileDownload(url, contentDisposition, mimeType, requestUserConfirmation))
+    }
+
+    private fun postMessageToConvertBlobToDataUri(url: String, mimeType: String) {
+        Timber.d("TAG_ANA postMessageToConvertBlobToDataUri url=$url, mimeType=$mimeType")
+
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            for ((key, value) in replyProxyMap) {
+                Timber.d("TAG_ANA replyProxyMap key is $key and value is $value")
+                if (url.contains(key)) {
+                    Timber.d("TAG_ANA Posting message to replyProxy: $value")
+                    value.postMessage(url)
+                }
+            }
+        }
     }
 
     fun showEmailProtectionChooseEmailPrompt(autofillWebMessageRequest: AutofillWebMessageRequest) {
@@ -3245,6 +3263,11 @@ class BrowserTabViewModel @Inject constructor(
         if (cta is ExperimentOnboardingDaxDialogCta) {
             onDismissExperimentDaxDialog(cta)
         }
+    }
+
+    fun saveReplyProxyForBlobDownload(originUrl: String, replyProxy: JavaScriptReplyProxy) {
+        replyProxyMap[originUrl] = replyProxy
+        Timber.d("TAG_ANA replyProxyMap is $replyProxyMap")
     }
 
     companion object {
