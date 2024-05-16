@@ -263,7 +263,6 @@ import com.duckduckgo.downloads.api.FileDownloader
 import com.duckduckgo.downloads.api.FileDownloader.PendingFileDownload
 import com.duckduckgo.js.messaging.api.JsCallbackData
 import com.duckduckgo.js.messaging.api.JsMessageCallback
-import com.duckduckgo.js.messaging.api.JsMessageHelper
 import com.duckduckgo.js.messaging.api.JsMessaging
 import com.duckduckgo.mobile.android.app.tracking.ui.AppTrackingProtectionScreens.AppTrackerOnboardingActivityWithEmptyParamsParams
 import com.duckduckgo.navigation.api.GlobalActivityStarter
@@ -461,9 +460,6 @@ class BrowserTabFragment :
     lateinit var webContentDebugging: WebContentDebugging
 
     @Inject
-    lateinit var jsMessageHelper: JsMessageHelper
-
-    @Inject
     lateinit var externalCameraLauncher: UploadFromExternalMediaAppLauncher
 
     @Inject
@@ -516,9 +512,6 @@ class BrowserTabFragment :
     private lateinit var renderer: BrowserTabFragmentRenderer
 
     private lateinit var decorator: BrowserTabFragmentDecorator
-
-    private lateinit var quickAccessAdapter: FavoritesQuickAccessAdapter
-    private lateinit var quickAccessItemTouchHelper: ItemTouchHelper
 
     private lateinit var omnibarQuickAccessAdapter: FavoritesQuickAccessAdapter
     private lateinit var omnibarQuickAccessItemTouchHelper: ItemTouchHelper
@@ -3808,36 +3801,24 @@ class BrowserTabFragment :
             }
 
             renderIfChanged(viewState, lastSeenCtaViewState) {
-                val newMessage = (viewState.message?.id != lastSeenCtaViewState?.message?.id)
                 lastSeenCtaViewState = viewState
-                removeNewTabLayoutClickListener()
-                Timber.v("RMF: render $newMessage, $viewState")
                 when {
                     viewState.cta != null -> {
-                        showCta(viewState.cta, viewState.favorites)
-                    }
-
-                    viewState.message != null -> {
-                        // showRemoteMessage(viewState.message, newMessage)
-                        showNewTab(viewState.favorites, hideLogo = true)
-                        hideHomeCta()
+                        showCta(viewState.cta)
                     }
 
                     else -> {
                         hideHomeCta()
                         hideDaxCta()
-                        showNewTab(viewState.favorites)
+                        showNewTab()
                     }
                 }
             }
         }
 
-        private fun showCta(
-            configuration: Cta,
-            favorites: List<QuickAccessFavorite>,
-        ) {
+        private fun showCta(configuration: Cta) {
             when (configuration) {
-                is HomePanelCta -> showHomeCta(configuration, favorites)
+                is HomePanelCta -> showHomeCta(configuration)
                 is DaxBubbleCta -> showDaxCta(configuration)
                 is ExperimentDaxBubbleOptionsCta -> showDaxExperimentCta(configuration)
                 is BubbleCta -> showBubbleCta(configuration)
@@ -3888,7 +3869,7 @@ class BrowserTabFragment :
         }
 
         private fun showDaxCta(configuration: DaxBubbleCta) {
-            hideHomeBackground()
+            hideNewTab()
             hideHomeCta()
             configuration.showCta(daxDialogCta.daxCtaContainer)
             newBrowserTab.newTabLayout.setOnClickListener { daxDialogCta.dialogTextCta.finishAnimation() }
@@ -3897,7 +3878,7 @@ class BrowserTabFragment :
         }
 
         private fun showDaxExperimentCta(configuration: ExperimentDaxBubbleOptionsCta) {
-            hideHomeBackground()
+            hideNewTab()
             hideHomeCta()
             configuration.apply {
                 showCta(daxDialogIntroExperimentCta.daxCtaContainer)
@@ -3913,7 +3894,7 @@ class BrowserTabFragment :
 
         @SuppressLint("ClickableViewAccessibility")
         private fun showExperimentDialogCta(configuration: ExperimentOnboardingDaxDialogCta) {
-            hideHomeBackground()
+            hideNewTab()
             hideHomeCta()
             val onTypingAnimationFinished = if (configuration is ExperimentOnboardingDaxDialogCta.DaxTrackersBlockedCta) {
                 { viewModel.onExperimentDaxTypingAnimationFinished() }
@@ -3935,7 +3916,7 @@ class BrowserTabFragment :
         }
 
         private fun showBubbleCta(configuration: BubbleCta) {
-            hideHomeBackground()
+            hideNewTab()
             hideHomeCta()
             configuration.showCta(daxDialogCta.daxCtaContainer)
             newBrowserTab.newTabLayout.setOnClickListener { daxDialogCta.dialogTextCta.finishAnimation() }
@@ -3948,7 +3929,6 @@ class BrowserTabFragment :
 
         private fun showHomeCta(
             configuration: HomePanelCta,
-            favorites: List<QuickAccessFavorite>,
         ) {
             hideDaxCta()
             if (newBrowserTab.ctaContainer.isEmpty()) {
@@ -3956,29 +3936,15 @@ class BrowserTabFragment :
             } else {
                 configuration.showCta(newBrowserTab.ctaContainer)
             }
-            showNewTab(favorites)
+            showNewTab()
             viewModel.onCtaShown()
         }
 
-        private fun showNewTab(
-            favorites: List<QuickAccessFavorite>,
-            hideLogo: Boolean = false,
-        ) {
+        private fun showNewTab() {
             newBrowserTab.newTabContainerLayout.show()
-            // if (favorites.isEmpty()) {
-            //     if (hideLogo) homeBackgroundLogo.hideLogo() else homeBackgroundLogo.showLogo()
-            //     quickAccessItems.quickAccessRecyclerView.gone()
-            // } else {
-            //     homeBackgroundLogo.hideLogo()
-            //     quickAccessAdapter.submitList(favorites)
-            //     quickAccessItems.quickAccessRecyclerView.show()
-            //     viewModel.onNewTabFavouritesShown()
-            // }
-            //
-            // newBrowserTab.newTabQuickAccessItemsLayout.show()
         }
 
-        private fun hideHomeBackground() {
+        private fun hideNewTab() {
             newBrowserTab.newTabContainerLayout.gone()
         }
 
