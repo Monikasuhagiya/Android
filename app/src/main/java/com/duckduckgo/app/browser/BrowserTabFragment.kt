@@ -42,6 +42,7 @@ import android.text.Spanned
 import android.text.style.StyleSpan
 import android.view.*
 import android.view.View.*
+import android.view.ViewGroup.LayoutParams
 import android.view.inputmethod.EditorInfo
 import android.webkit.PermissionRequest
 import android.webkit.SslErrorHandler
@@ -110,7 +111,6 @@ import com.duckduckgo.app.browser.databinding.ContentSystemLocationPermissionDia
 import com.duckduckgo.app.browser.databinding.FragmentBrowserTabBinding
 import com.duckduckgo.app.browser.databinding.HttpAuthenticationBinding
 import com.duckduckgo.app.browser.databinding.IncludeOmnibarToolbarBinding
-import com.duckduckgo.app.browser.databinding.IncludeQuickAccessItemsBinding
 import com.duckduckgo.app.browser.databinding.PopupWindowBrowserMenuBinding
 import com.duckduckgo.app.browser.downloader.BlobConverterInjector
 import com.duckduckgo.app.browser.favicon.FaviconManager
@@ -118,6 +118,7 @@ import com.duckduckgo.app.browser.favicon.setting.FaviconPromptSheet
 import com.duckduckgo.app.browser.favorites.FavoritesQuickAccessAdapter
 import com.duckduckgo.app.browser.favorites.FavoritesQuickAccessAdapter.Companion.QUICK_ACCESS_ITEM_MAX_SIZE_DP
 import com.duckduckgo.app.browser.favorites.FavoritesQuickAccessAdapter.QuickAccessFavorite
+import com.duckduckgo.app.browser.favorites.NewTabLegacyPageView
 import com.duckduckgo.app.browser.favorites.QuickAccessDragTouchItemListener
 import com.duckduckgo.app.browser.filechooser.FileChooserIntentBuilder
 import com.duckduckgo.app.browser.filechooser.capture.launcher.UploadFromExternalMediaAppLauncher
@@ -141,7 +142,6 @@ import com.duckduckgo.app.browser.omnibar.animations.PrivacyShieldAnimationHelpe
 import com.duckduckgo.app.browser.omnibar.animations.TrackersAnimatorListener
 import com.duckduckgo.app.browser.print.PrintInjector
 import com.duckduckgo.app.browser.remotemessage.SharePromoLinkRMFBroadCastReceiver
-import com.duckduckgo.app.browser.remotemessage.asMessage
 import com.duckduckgo.app.browser.session.WebViewSessionStorage
 import com.duckduckgo.app.browser.shortcut.ShortcutBuilder
 import com.duckduckgo.app.browser.tabpreview.WebViewPreviewGenerator
@@ -272,7 +272,6 @@ import com.duckduckgo.privacy.dashboard.api.ui.PrivacyDashboardHybridScreen
 import com.duckduckgo.privacyprotectionspopup.api.PrivacyProtectionsPopup
 import com.duckduckgo.privacyprotectionspopup.api.PrivacyProtectionsPopupFactory
 import com.duckduckgo.privacyprotectionspopup.api.PrivacyProtectionsPopupViewState
-import com.duckduckgo.remote.messaging.api.RemoteMessage
 import com.duckduckgo.savedsites.api.models.BookmarkFolder
 import com.duckduckgo.savedsites.api.models.SavedSite
 import com.duckduckgo.savedsites.api.models.SavedSite.Bookmark
@@ -542,8 +541,6 @@ class BrowserTabFragment :
 
     private lateinit var omnibar: IncludeOmnibarToolbarBinding
 
-    private lateinit var quickAccessItems: IncludeQuickAccessItemsBinding
-
     private lateinit var webViewContainer: FrameLayout
 
     private var bookmarksBottomSheetDialog: BookmarksBottomSheetDialog.Builder? = null
@@ -756,8 +753,6 @@ class BrowserTabFragment :
         }
     }
 
-    private val homeBackgroundLogo by lazy { HomeBackgroundLogo(newBrowserTab.ddgLogo) }
-
     private val ctaViewStateObserver = Observer<CtaViewState> {
         it?.let { renderer.renderCtaViewState(it) }
     }
@@ -832,7 +827,6 @@ class BrowserTabFragment :
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         super.onActivityCreated(savedInstanceState)
         omnibar = IncludeOmnibarToolbarBinding.bind(binding.rootView)
-        quickAccessItems = IncludeQuickAccessItemsBinding.bind(binding.rootView)
         webViewContainer = binding.webViewContainer
         configureObservers()
         configurePrivacyShield()
@@ -843,7 +837,7 @@ class BrowserTabFragment :
         configureFindInPage()
         configureAutoComplete()
         configureOmnibarQuickAccessGrid()
-        configureHomeTabQuickAccessGrid()
+        configureNewTab()
         initPrivacyProtectionsPopup()
 
         if (tabDisplayedInCustomTabScreen) {
@@ -2142,17 +2136,6 @@ class BrowserTabFragment :
         binding.quickAccessSuggestionsRecyclerView.disableAnimation()
     }
 
-    private fun configureHomeTabQuickAccessGrid() {
-        configureQuickAccessGridLayout(quickAccessItems.quickAccessRecyclerView)
-        quickAccessAdapter = createQuickAccessAdapter(originPixel = AppPixelName.FAVORITE_HOMETAB_ITEM_PRESSED) { viewHolder ->
-            quickAccessItems.quickAccessRecyclerView.enableAnimation()
-            quickAccessItemTouchHelper.startDrag(viewHolder)
-        }
-        quickAccessItemTouchHelper = createQuickAccessItemHolder(quickAccessItems.quickAccessRecyclerView, quickAccessAdapter)
-        quickAccessItems.quickAccessRecyclerView.adapter = quickAccessAdapter
-        quickAccessItems.quickAccessRecyclerView.disableAnimation()
-    }
-
     private fun createQuickAccessItemHolder(
         recyclerView: RecyclerView,
         apapter: FavoritesQuickAccessAdapter,
@@ -2196,6 +2179,16 @@ class BrowserTabFragment :
         recyclerView.layoutManager = layoutManager
         val sidePadding = gridViewColumnCalculator.calculateSidePadding(QUICK_ACCESS_ITEM_MAX_SIZE_DP, numOfColumns)
         recyclerView.setPadding(sidePadding, recyclerView.paddingTop, sidePadding, recyclerView.paddingBottom)
+    }
+
+    private fun configureNewTab() {
+        newBrowserTab.newTabContainerLayout.addView(
+            NewTabLegacyPageView(requireContext()),
+            LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.MATCH_PARENT,
+            ),
+        )
     }
 
     private fun configurePrivacyShield() {
@@ -2912,12 +2905,10 @@ class BrowserTabFragment :
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
 
-        newBrowserTab.ddgLogo.setImageResource(com.duckduckgo.mobile.android.R.drawable.logo_full)
         if (newBrowserTab.ctaContainer.isNotEmpty()) {
             renderer.renderHomeCta()
         }
         renderer.recreateDaxDialogCta()
-        configureQuickAccessGridLayout(quickAccessItems.quickAccessRecyclerView)
         configureQuickAccessGridLayout(binding.quickAccessSuggestionsRecyclerView)
         decorator.recreatePopupMenu()
         privacyProtectionsPopup.onConfigurationChanged()
@@ -3827,43 +3818,16 @@ class BrowserTabFragment :
                     }
 
                     viewState.message != null -> {
-                        showRemoteMessage(viewState.message, newMessage)
-                        showHomeBackground(viewState.favorites, hideLogo = true)
+                        // showRemoteMessage(viewState.message, newMessage)
+                        showNewTab(viewState.favorites, hideLogo = true)
                         hideHomeCta()
                     }
 
                     else -> {
                         hideHomeCta()
                         hideDaxCta()
-                        newBrowserTab.messageCta.gone()
-                        showHomeBackground(viewState.favorites)
+                        showNewTab(viewState.favorites)
                     }
-                }
-            }
-        }
-
-        private fun showRemoteMessage(
-            message: RemoteMessage,
-            newMessage: Boolean,
-        ) {
-            val shouldRender = newMessage || newBrowserTab.messageCta.isGone
-
-            if (shouldRender) {
-                Timber.i("RMF: render $message")
-                newBrowserTab.messageCta.show()
-                viewModel.onMessageShown()
-                newBrowserTab.messageCta.setMessage(message.asMessage())
-                newBrowserTab.messageCta.onCloseButtonClicked {
-                    viewModel.onMessageCloseButtonClicked()
-                }
-                newBrowserTab.messageCta.onPrimaryActionClicked {
-                    viewModel.onMessagePrimaryButtonClicked()
-                }
-                newBrowserTab.messageCta.onSecondaryActionClicked {
-                    viewModel.onMessageSecondaryButtonClicked()
-                }
-                newBrowserTab.messageCta.onPromoActionClicked {
-                    viewModel.onMessageActionButtonClicked()
                 }
             }
         }
@@ -3880,7 +3844,7 @@ class BrowserTabFragment :
                 is DialogCta -> showDaxDialogCta(configuration)
                 is ExperimentOnboardingDaxDialogCta -> showExperimentDialogCta(configuration)
             }
-            newBrowserTab.messageCta.gone()
+            // newBrowserTab.messageCta.gone()
         }
 
         fun recreateDaxDialogCta() {
@@ -3992,30 +3956,30 @@ class BrowserTabFragment :
             } else {
                 configuration.showCta(newBrowserTab.ctaContainer)
             }
-            showHomeBackground(favorites)
+            showNewTab(favorites)
             viewModel.onCtaShown()
         }
 
-        private fun showHomeBackground(
+        private fun showNewTab(
             favorites: List<QuickAccessFavorite>,
             hideLogo: Boolean = false,
         ) {
-            if (favorites.isEmpty()) {
-                if (hideLogo) homeBackgroundLogo.hideLogo() else homeBackgroundLogo.showLogo()
-                quickAccessItems.quickAccessRecyclerView.gone()
-            } else {
-                homeBackgroundLogo.hideLogo()
-                quickAccessAdapter.submitList(favorites)
-                quickAccessItems.quickAccessRecyclerView.show()
-                viewModel.onNewTabFavouritesShown()
-            }
-
-            newBrowserTab.newTabQuickAccessItemsLayout.show()
+            newBrowserTab.newTabContainerLayout.show()
+            // if (favorites.isEmpty()) {
+            //     if (hideLogo) homeBackgroundLogo.hideLogo() else homeBackgroundLogo.showLogo()
+            //     quickAccessItems.quickAccessRecyclerView.gone()
+            // } else {
+            //     homeBackgroundLogo.hideLogo()
+            //     quickAccessAdapter.submitList(favorites)
+            //     quickAccessItems.quickAccessRecyclerView.show()
+            //     viewModel.onNewTabFavouritesShown()
+            // }
+            //
+            // newBrowserTab.newTabQuickAccessItemsLayout.show()
         }
 
         private fun hideHomeBackground() {
-            homeBackgroundLogo.hideLogo()
-            newBrowserTab.newTabQuickAccessItemsLayout.gone()
+            newBrowserTab.newTabContainerLayout.gone()
         }
 
         private fun hideDaxCta() {

@@ -18,6 +18,7 @@ package com.duckduckgo.app.browser.remotemessage
 
 import com.duckduckgo.app.browser.commands.Command
 import com.duckduckgo.app.browser.commands.Command.*
+import com.duckduckgo.app.browser.favorites.NewTabLegacyPageViewModel
 import com.duckduckgo.remote.messaging.api.Action
 import com.duckduckgo.remote.messaging.api.Action.*
 
@@ -33,5 +34,18 @@ fun Action.asBrowserTabCommand(): Command? {
         is Share -> SharePromoLinkRMF(this.value, this.title)
         is Navigation -> { LaunchScreen(this.value, this.additionalParameters?.get("payload").orEmpty()) }
         is Survey -> SubmitUrl(this.value)
+    }
+}
+
+fun Action.asNewTabCommand(): NewTabLegacyPageViewModel.Command {
+    return when (this) {
+        is Dismiss -> NewTabLegacyPageViewModel.Command.DismissMessage
+        is PlayStore -> NewTabLegacyPageViewModel.Command.LaunchPlayStore(this.value)
+        is Url -> NewTabLegacyPageViewModel.Command.SubmitUrl(this.value)
+        is DefaultBrowser -> NewTabLegacyPageViewModel.Command.LaunchDefaultBrowser
+        is AppTpOnboarding -> NewTabLegacyPageViewModel.Command.LaunchAppTPOnboarding
+        is Share -> NewTabLegacyPageViewModel.Command.SharePromoLinkRMF(this.value, this.title)
+        is Navigation -> { NewTabLegacyPageViewModel.Command.LaunchScreen(this.value, this.additionalParameters?.get("payload").orEmpty()) }
+        is Survey -> NewTabLegacyPageViewModel.Command.SubmitUrl(this.value)
     }
 }
