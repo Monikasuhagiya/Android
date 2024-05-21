@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 DuckDuckGo
+ * Copyright (c) 2024 DuckDuckGo
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,12 @@
  * limitations under the License.
  */
 
-package com.duckduckgo.app.global.view
+package com.duckduckgo.newtabpage.api
 
-import androidx.recyclerview.widget.DefaultItemAnimator
-import androidx.recyclerview.widget.RecyclerView
-import androidx.recyclerview.widget.RecyclerView.ItemAnimator
+interface NewTabPageSectionProvider {
 
-fun RecyclerView.disableAnimation() {
-    this.itemAnimator = null
+    fun provideSections(): List<NewTabPageSectionPlugin>
+
 }
 
-fun RecyclerView.enableAnimation(animator: ItemAnimator? = DefaultItemAnimator()) {
-    this.itemAnimator = DefaultItemAnimator()
-}
+
