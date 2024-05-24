@@ -77,7 +77,6 @@ import androidx.fragment.app.setFragmentResultListener
 import androidx.fragment.app.transaction
 import androidx.lifecycle.*
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.duckduckgo.anvil.annotations.InjectWith
@@ -158,6 +157,7 @@ import com.duckduckgo.app.browser.viewstate.OmnibarViewState
 import com.duckduckgo.app.browser.viewstate.PrivacyShieldViewState
 import com.duckduckgo.app.browser.viewstate.SavedSiteChangedViewState
 import com.duckduckgo.app.browser.webshare.WebShareChooser
+import com.duckduckgo.app.browser.webview.DummyWebMessageListenerFeature
 import com.duckduckgo.app.browser.webview.WebContentDebugging
 import com.duckduckgo.app.cta.ui.*
 import com.duckduckgo.app.cta.ui.DaxDialogCta.*
