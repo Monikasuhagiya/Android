@@ -2124,6 +2124,14 @@ class BrowserTabFragment :
     }
 
     private fun configureNewTab() {
+        newBrowserTab.newTabLayout.setOnScrollChangeListener { v, scrollX, scrollY, oldScrollX, oldScrollY ->
+            if (omnibar.omniBarContainer.isPressed) {
+                omnibar.omnibarTextInput.hideKeyboard()
+                binding.focusDummy.requestFocus()
+                omnibar.omniBarContainer.isPressed = false
+            }
+        }
+
         newBrowserTab.newTabContainerLayout.addView(
             newTabPageProvider.provideNewTabPageVersion().getView(requireContext()),
             LayoutParams(
